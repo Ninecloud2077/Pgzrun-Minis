@@ -1,19 +1,25 @@
 import pgzrun
 from random import randint,choice
 
+
 WIDTH,HEIGHT=1000,400
 
-class Block:
+
+class Block: #踏板的类
+
     def __init__(self):
         self.Actor=Actor('block')
         self.Actor.x=randint(self.Actor.width,WIDTH-self.Actor.width)
         self.Actor.y=randint(self.Actor.height,HEIGHT-self.Actor.height)
 
+
     def draw(self):
         self.Actor.draw()
 
 
-class Power:
+
+class Power: #推动气场的类
+
     def __init__(self,Owner,SRadius,Speed=1,Dmg=0,Force=0,Freeze=0,Color=(0,0,0)):
         self.Owner=Owner
         self.Pos=self.Owner.Actor.center
@@ -28,8 +34,10 @@ class Power:
         self.Color=Color
         self.Death=0
 
+
     def draw(self):
         screen.draw.circle(self.Pos,self.Radius,self.Color)
+
 
     def up(self):
         self.Radius+=self.Speed
@@ -38,7 +46,8 @@ class Power:
             return
         self.collide()
 
-    def collide(self):
+
+    def collide(self): #攻击敌人
         for i in Grand:
             if i not in self.Attacked and i.Team!=self.Owner.Team and i.Actor.distance_to(self.Pos)<=self.Radius:
                 i.takedmg(self.Dmg)
@@ -47,7 +56,8 @@ class Power:
                     i.SK['Freeze']+=self.Freeze
                 self.Attacked.append(i)
 
-    def force(self,i):
+
+    def force(self,i): #给击中敌人击飞
         if self.Pos[0]<i.Actor.x:
             i.Force[0]+=self.Force
         elif self.Pos[0]>i.Actor.x:
@@ -59,7 +69,9 @@ class Power:
             i.Force[1]-=self.Force
 
 
-class Pull(Power):
+
+class Pull(Power): #拉动气场
+
     def __init__(self, Owner, SRadius, Speed=1, Dmg=0, Force=0, Freeze=0, Color=(0, 0, 0)):
         super().__init__(Owner, SRadius, Speed, Dmg, Force, Freeze, Color)
         self.Radius=self.SRadius
@@ -83,7 +95,9 @@ class Pull(Power):
             i.Force[1]+=self.Force
 
 
-class BIF:
+
+class BIF: #BIF
+
     def __init__(self,Owner,Img='bif',Radius=200,Speed=3,Force=12,Wait=90,LifeTime=450):
         self.Actor=Actor(Img)
         self.Actor.center=Owner.Actor.center
@@ -97,19 +111,22 @@ class BIF:
         self.Tick=0
         self.Death=0
 
+
     def draw(self):
         self.Actor.draw()
 
-    def up(self):
+
+    def up(self): #定时发送气场或消失
         self.Tick+=1
         if self.Tick%self.Wait==0:
             Bullets.append(Power(Owner=self,SRadius=self.Radius,Force=self.Force,Speed=self.Speed,Color=(255,212,56)))
         if self.Tick==self.LifeTime:
             self.Death=1
             return
-        
 
-class FIT(BIF):
+
+
+class FIT(BIF): #FIT
     def __init__(self, Owner, Img='fit', Radius=200, Speed=5, Force=12, Wait=90, LifeTime=450):
         super().__init__(Owner, Img, Radius, Speed, Force, Wait, LifeTime)
     
@@ -122,7 +139,9 @@ class FIT(BIF):
             return
 
 
-class Bullet:
+
+class Bullet: #基础子弹
+
     def __init__(self,Owner,Angle=0,Dmg=1,Speed=5,Img='pistol'):
         self.Actor=Actor(Img,Owner.Actor.center)
         self.Actor.angle=Angle
@@ -131,10 +150,12 @@ class Bullet:
         self.Speed=Speed
         self.Death=0
 
+
     def draw(self):
         self.Actor.draw()
 
-    def move(self):
+
+    def move(self): #移动
         if self.Actor.angle==0:
             self.Actor.x+=self.Speed
         else:
@@ -142,34 +163,35 @@ class Bullet:
         if self.Actor.x<0 or self.Actor.x>WIDTH:
             self.Death=1
 
-    def collide(self):
+    def collide(self): #碰到敌人
         for i in Grand:
             if self.Team!=i.Team and self.Actor.colliderect(i.Actor):
                 i.takedmg(self.Dmg)
                 self.Death=1
-                break
+                return
 
-    def block(self):
+    def block(self): #碰到踏板
         for i in Blocks:
             if self.Actor.colliderect(i.Actor):
                 self.Death=1
                 break        
     
+
     def up(self):
         self.move()
         self.block()
         self.collide()
 
 
-class IceRocket(Bullet):
+class IceRocket(Bullet): #冰冻火箭
+
     def __init__(self,Owner,Dmg=2,Angle=90,Speed=7,Wait=45,Img='icerocket'):
         super().__init__(Owner,Angle,Dmg,Speed,Img)
-
         self.Wait=Wait
-        
         self.Target=randenemy(self.Team).Actor.x
 
-    def move(self):
+
+    def move(self): #移动
         if self.Actor.angle==90:
             self.Actor.y-=self.Speed
             if self.Actor.bottom<=0:
@@ -184,57 +206,74 @@ class IceRocket(Bullet):
             if not self.Wait:
                 self.Actor.angle=-90
 
-    def block(self):
+
+    def block(self): #碰到踏板
         if self.Actor.angle!=-90:
             return
         super().block()
         
+
     def up(self):
         super().up()
         if self.Death:
             Bullets.append(Power(Owner=self,SRadius=100,Speed=3,Dmg=self.Dmg,Force=10,Freeze=60,Color=(63,133,255)))
 
-class DJ:
+
+
+class DJ: #二段跳以及别的
+
     def __init__(self,Pos,Img='dj',Speed=5,Lifetime=6):
         self.Actor=Actor(Img,Pos)
         self.Speed=Speed
         self.Lifetime=Lifetime
         self.Death=0
     
+
     def draw(self):
         self.Actor.draw()
     
-    def up(self):
+
+    def move(self):
         self.Actor.y+=self.Speed
+
+
+    def up(self): #按时间消失
+        self.move()
         self.Lifetime-=1
         if not self.Lifetime:
             self.Death=1
             return
 
 
-class Item:
+
+class Item: #物品
     def posinit(self):
         self.Actor.midbottom=Blocks[randint(0,len(Blocks)-1)].Actor.midtop
+
     def __init__(self,Img='empty'):
         self.Actor=Actor(Img)
         self.posinit()
         self.Death=0
 
+
     def draw(self):
         self.Actor.draw()
 
-    def up(self):
+
+    def up(self): #碰撞玩家
         for i in Grand:
             if self.Actor.colliderect(i.Actor):
                 self.collide(i)
                 self.Death=1
                 return
 
-    def collide(self,Target):
-        pass
+
+    def collide(self,Target): #碰撞的额外执行
+        return
 
 
-class Heal(Item):
+
+class Heal(Item): #血包
     def __init__(self,Img='heal'):
         super().__init__(Img)
 
@@ -242,7 +281,7 @@ class Heal(Item):
         Target.takedmg(-2)
 
 
-class ShieldItem(Item):
+class ShieldItem(Item): #护盾
     def __init__(self,Img='shield'):
         super().__init__(Img)
 
@@ -250,21 +289,23 @@ class ShieldItem(Item):
         Target.SK['Shield']=180
 
 
-class IceItem(Item):
+class IceItem(Item): #冰火箭
     def __init__(self,Img='ice'):
         super().__init__(Img)
 
     def collide(self,Target):
         Bullets.append(IceRocket(Target))
 
-class BIFItem(Item):
+
+class BIFItem(Item): #BIF
     def __init__(self,Img='bifitem'):
         super().__init__(Img)
 
     def collide(self,Target):
         Bullets.append(BIF(Target))
 
-class FITItem(Item):
+
+class FITItem(Item): #FIT
     def __init__(self, Img='fititem'):
         super().__init__(Img)
     
@@ -272,19 +313,19 @@ class FITItem(Item):
         Bullets.append(FIT(Target))
 
 
-class Player:
-    TeamsAndKeys={'red':keys.W, 'blue':keys.UP}
-    TeamsAndBullets={'red':keys.SPACE, 'blue':keys.KP_ENTER}
+class Player: #玩家
+    TeamsAndKeys={'red':keys.W, 'blue':keys.UP} #跳跃按钮
+    TeamsAndBullets={'red':keys.SPACE, 'blue':keys.KP_ENTER} #射击按钮
     
-    def posinit(self):
+    def posinit(self): #位置初始化
         self.Actor.midbottom=Blocks[randint(0,len(Blocks)-1)].Actor.midtop
         
-    def skinit(self):
+    def skinit(self): #状态初始化
         self.SK={}
         self.SK['Shield']=0
         self.SK['Freeze']=0
         
-    def othersinit(self,Team):
+    def othersinit(self,Team): #其它初始化
         self.Team=Team
         self.Actor=Actor(Team)
         self.HP=10
@@ -301,17 +342,17 @@ class Player:
         self.Gun=Actor('gun')
 
     def draw(self):
-        if self.SK['Shield']:
+        if self.SK['Shield']: #护盾
             screen.draw.circle(self.Actor.center,8,(63,133,255))
             screen.draw.text(str(round(self.SK['Shield']/60,1)),(self.Actor.left,self.Actor.top-8),fontsize=15,color='blue')
-        if self.SK['Freeze']:
+        if self.SK['Freeze']: #冰冻
             self.Actor.image='freeze'
             screen.draw.text(str(round(self.SK['Freeze']/60,1)),self.Actor.topright,fontsize=15,color='lightblue')
-        elif self.Jump:
+        elif self.Jump: #二段跳
             self.Actor.image=self.Team
         elif (not self.Jump):
             self.Actor.image=self.Team+'_d'
-        
+
         if self.FD:
             self.Gun.midright=self.Actor.midleft
         else:
@@ -322,7 +363,7 @@ class Player:
         
         screen.draw.text(str(self.HP),self.Actor.topleft,fontsize=15)
 
-    def collide(self):
+    def collide(self): #碰撞其它玩家
         for i in Grand:
             if i.Team!=self.Team and self.Actor.colliderect(i.Actor):
                     if self.Actor.x<=i.Actor.x:
@@ -331,7 +372,8 @@ class Player:
                         self.Actor.x+=10
                     break
         
-    def move(self):
+
+    def move(self): #受力
         for i in Blocks:
             if self.Actor.colliderect(i.Actor) and self.Actor.bottom<=i.Actor.bottom:
                 if self.Force[1]>=0:
@@ -371,9 +413,8 @@ class Player:
             self.posinit()
 
 
-    def keyup(self):
+    def keyup(self): #在update()函数中的按键判断
         if self.SK['Freeze']:
-            self.SK['Freeze']-=1
             return
         
         if self.Team=='red':
@@ -391,9 +432,11 @@ class Player:
                 self.Force[0]=3
                 self.FD=0
 
-    def skup(self):
-        if self.SK['Shield']>0:
+    def skup(self): #状态更新
+        if self.SK['Shield']:
             self.SK['Shield']-=1
+        if self.SK['Freeze']:
+            self.SK['Freeze']-=1
 
     def up(self):
         self.move()
@@ -401,7 +444,8 @@ class Player:
         self.collide()
         self.skup()
 
-    def keydown(self,key):
+
+    def keydown(self,key): #on_key_down()函数中的按键判断
         if self.SK['Freeze']:
             return
         if self.Jump and key==Player.TeamsAndKeys[self.Team]:
@@ -417,7 +461,8 @@ class Player:
         if key==Player.TeamsAndBullets[self.Team]:
             Bullets.append(Bullet(self,self.FD*180))
     
-    def takedmg(self,Dmg):
+
+    def takedmg(self,Dmg): #伤害与回血
         if self.SK['Shield'] and Dmg>0:
             return
         
@@ -427,7 +472,7 @@ class Player:
 
 
 Blocks=[]
-def blockinit():
+def blockinit(): #初始化踏板
     global Blocks
     Blocks=[]
     while len(Blocks)<20:
@@ -440,13 +485,13 @@ def blockinit():
 blockinit()
            
 Grand=[]
-def playerinit():
+def playerinit(): #初始化玩家
     global Grand
     Grand=[Player('red'),Player('blue')]
 playerinit()
 
 
-def randenemy(Team):
+def randenemy(Team): #随机寻找一个敌人
     global Grand
     i=choice(Grand)
     while i.Team==Team:
@@ -459,9 +504,9 @@ Items=[]
 
 Winner=''
 
-ItemObj=[Heal,ShieldItem,IceItem,BIFItem,FITItem]
+ItemObj=[Heal,ShieldItem,IceItem,BIFItem,FITItem] #所有物品
 
-def additem():
+def additem(): #定时添加物品
     global ItemObj
     if len(Items)<5:
         t=choice(ItemObj)()
@@ -474,7 +519,7 @@ def additem():
             else:
                 w=0
                 Items.append(t)
-def iteminit():
+def iteminit(): #初始化物品
     clock.schedule_interval(additem,6)
 iteminit()
                 
@@ -485,8 +530,8 @@ def draw():
     for i in Blocks+Grand+Items+Bullets:
         i.draw()
     if Winner:
-        screen.draw.text(Winner+' wins!',(WIDTH*0.25,HEIGHT*0.25),color='yellow',fontsize=100,fontname='baush93')
-        screen.draw.text('Main_Enter to Restart',(WIDTH*0.25,HEIGHT*0.5),color='yellow',fontsize=65,fontname='baush93')
+        screen.draw.text(Winner+' wins!',(WIDTH*0.25,HEIGHT*0.25),color=Winner,fontsize=100,fontname='baush93')
+        screen.draw.text('Main_Enter to Restart',(WIDTH*0.25,HEIGHT*0.5),color=Winner,fontsize=65,fontname='baush93')
 
 def update():
     global Winner,Grand,Bullets,Items
